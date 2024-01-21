@@ -1,5 +1,5 @@
 Domain = "http://localhost:8080"
-DisableTLSVerify = true
+DisableTLSVerify = false
 [[OidcClients]]
   ProviderName = "myoidc"
   ClientId = "8vzeTujNkrpdpNBbVyo2VkpBkCXFe331"
