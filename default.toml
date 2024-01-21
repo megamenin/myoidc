@@ -1,0 +1,15 @@
+Domain = "http://localhost:8080"
+DisableTLSVerify = true
+[[OidcClients]]
+  ProviderName = "myoidc"
+  ClientId = "8vzeTujNkrpdpNBbVyo2VkpBkCXFe331"
+  AuthUrl = "https://dev-skgndin2acdwdyll.us.auth0.com/authorize"
+  TokenUrl = "https://dev-skgndin2acdwdyll.us.auth0.com/oauth/token"
+  UserInfoUrl = "https://dev-skgndin2acdwdyll.us.auth0.com/oauth/userinfo"
+  ClientSecret = "5Z9am1Q3Z-_WrlSsy3QUMiu7-OhsZS0uPIZZNFo5qFjuWAsQmPXqRb0qzfJKriuE"
+  UseState = true
+  UsePKCE = true
+  StateLength = 32
+  PKCEMethod = "S256"
+  PKCEChallengeLength = 43
+  UserInfoUnmarshaler = "oauth0"

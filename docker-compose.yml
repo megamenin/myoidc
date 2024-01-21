@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      dockerfile: docker/Dockerfile
+    ports:
+      - ${MYOIDC_APP_EXPOSE_PORT:-8080}:8080
+    volumes:
+      - .:/src
