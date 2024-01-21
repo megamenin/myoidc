@@ -1,4 +1,4 @@
-package generic
+package client
 
 import (
 	"encoding/json"

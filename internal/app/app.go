@@ -8,8 +8,7 @@ import (
 	"myoidc/internal/handler/http"
 	"myoidc/internal/handler/http/oidc"
 	oidccli "myoidc/internal/service/oidc/client"
-	"myoidc/internal/service/oidc/client/generic"
-	"myoidc/internal/service/oidc/client/generic/oauth0"
+	"myoidc/internal/service/oidc/client/oauth0"
 	"myoidc/internal/service/oidc/pkce"
 	"myoidc/internal/service/session/inmemory"
 	oidc_callback "myoidc/internal/usecase/oidc/callback"
@@ -23,7 +22,7 @@ func init() {
 	log.SetDefault(log.NewLogrusLogger(
 		log.LogrusFormatter(&logrus.TextFormatter{DisableQuote: true}),
 	))
-	generic.RegisterUnmarshaler("oauth0", &oauth0.OAuth0Unmarshaler{})
+	oidccli.RegisterUnmarshaler("oauth0", &oauth0.OAuth0Unmarshaler{})
 }
 
 type App struct {
@@ -87,9 +86,9 @@ func Setup() *App {
 }
 
 func buildOidcClientRegistry(cfg *config.Config) (oidccli.ClientRegistry, error) {
-	oidcClientConfigs := make(map[string]generic.ClientConfig)
+	oidcClientConfigs := make(map[string]oidccli.ClientConfig)
 	for i, conf := range cfg.OidcClients {
-		cli := generic.ClientConfig{
+		cli := oidccli.ClientConfig{
 			ClientId:            conf.ClientId,
 			AuthUrl:             conf.AuthUrl,
 			TokenUrl:            conf.TokenUrl,
@@ -118,5 +117,5 @@ func buildOidcClientRegistry(cfg *config.Config) (oidccli.ClientRegistry, error)
 		return nil, errors.Error("no oidc provider is registered")
 	}
 
-	return generic.NewClientRegistry(oidcClientConfigs)
+	return oidccli.NewGenericClientRegistry(oidcClientConfigs)
 }

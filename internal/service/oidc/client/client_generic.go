@@ -1,4 +1,4 @@
-package generic
+package client
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"golang.org/x/oauth2"
 	"io"
 	"myoidc/internal/domain"
-	oidccli "myoidc/internal/service/oidc/client"
 	"myoidc/internal/service/oidc/pkce"
 	"myoidc/pkg/errors"
 	"net/http"
@@ -24,7 +23,7 @@ type GenericClient struct {
 	HttpClient *http.Client
 }
 
-func (cli GenericClient) BuildAuthURL(ctx context.Context, state string, scopes []string, tempSessId string, params ...oidccli.UrlParam) (*url.URL, error) {
+func (cli GenericClient) BuildAuthURL(ctx context.Context, state string, scopes []string, tempSessId string, params ...UrlParam) (*url.URL, error) {
 	_, config := cli.prepareOAuth2Client(ctx)
 	config.Scopes = scopes
 
@@ -42,7 +41,7 @@ func (cli GenericClient) BuildAuthURL(ctx context.Context, state string, scopes 
 	return url.Parse(loginUrlStr)
 }
 
-func (cli GenericClient) FetchTokenByCode(ctx context.Context, code string, tempSessId string, params ...oidccli.UrlParam) (*oidccli.Token, error) {
+func (cli GenericClient) FetchTokenByCode(ctx context.Context, code string, tempSessId string, params ...UrlParam) (*Token, error) {
 	ctx, config := cli.prepareOAuth2Client(ctx)
 
 	redirectUrl, err := cli.buildRedirectUrl(config.RedirectURL, tempSessId)
@@ -58,7 +57,7 @@ func (cli GenericClient) FetchTokenByCode(ctx context.Context, code string, temp
 	return cli.parseToken(config.Exchange(ctx, code, options...))
 }
 
-func (cli GenericClient) FetchUserByToken(ctx context.Context, token *oidccli.Token) (*domain.User, error) {
+func (cli GenericClient) FetchUserByToken(ctx context.Context, token *Token) (*domain.User, error) {
 	if token == nil || !token.Valid() {
 		return nil, errors.Error("token is invalid")
 	}
@@ -93,7 +92,7 @@ func (cli GenericClient) FetchUserByToken(ctx context.Context, token *oidccli.To
 	return &user, nil
 }
 
-func (cli GenericClient) RefreshToken(ctx context.Context, token *oidccli.Token) (*oidccli.Token, error) {
+func (cli GenericClient) RefreshToken(ctx context.Context, token *Token) (*Token, error) {
 	if token == nil || !token.Valid() {
 		return nil, errors.Error("token is invalid")
 	} else if token.Refresh == nil {
@@ -127,11 +126,11 @@ func (cli GenericClient) prepareOAuth2Client(ctx context.Context) (context.Conte
 	}
 }
 
-func (cli GenericClient) parseToken(tokenData *oauth2.Token, err error) (*oidccli.Token, error) {
+func (cli GenericClient) parseToken(tokenData *oauth2.Token, err error) (*Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	var token oidccli.Token
+	var token Token
 	token.Access = tokenData.AccessToken
 	if tokenData.RefreshToken != "" {
 		token.Refresh = &tokenData.RefreshToken
@@ -220,8 +219,8 @@ func (cli GenericClient) buildRedirectUrl(baseUrl, tempSessId string) (string, e
 	return redirectUri.String(), nil
 }
 
-func NewClientRegistry(configs map[string]ClientConfig) (oidccli.ClientRegistry, error) {
-	reg := make(map[string]oidccli.Client)
+func NewGenericClientRegistry(configs map[string]ClientConfig) (ClientRegistry, error) {
+	reg := make(map[string]Client)
 	for name, cfg := range configs {
 		cli, err := NewGenericClient(cfg)
 		if err != nil {
@@ -229,5 +228,5 @@ func NewClientRegistry(configs map[string]ClientConfig) (oidccli.ClientRegistry,
 		}
 		reg[name] = cli
 	}
-	return oidccli.MapClientRegistry(reg), nil
+	return MapClientRegistry(reg), nil
 }

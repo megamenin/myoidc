@@ -1,10 +1,9 @@
-package generic
+package client
 
 import (
 	"context"
 	"golang.org/x/oauth2"
 	"myoidc/internal/domain"
-	oidccli "myoidc/internal/service/oidc/client"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -19,7 +18,7 @@ func TestGenericClient_BuildAuthURL(t *testing.T) {
 		clientId      string
 		scopes        []string
 		state         string
-		params        []oidccli.UrlParam
+		params        []UrlParam
 		expected      string
 		expectedError bool
 	}{
@@ -60,7 +59,7 @@ func TestGenericClient_BuildAuthURL(t *testing.T) {
 			clientId: "client_id",
 			scopes:   []string{"openid", "profile"},
 			state:    "my_state",
-			params:   []oidccli.UrlParam{{Key: "challenge", Value: "123"}},
+			params:   []UrlParam{{Key: "challenge", Value: "123"}},
 			expected: "https://oauth.server.com/api/oidc/authenticate?challenge=123&client_id=client_id&redirect_uri=callback_url%3Ftoken%3DsessId&response_type=code&scope=openid+profile&state=my_state",
 		},
 	}
@@ -112,7 +111,7 @@ func TestGenericClient_FetchTokenByCode(t *testing.T) {
 	client.cfg.Endpoint.TokenURL = server.URL
 	res, err := client.FetchTokenByCode(context.TODO(), "code", "")
 	if assert.NoError(t, err) {
-		expected := &oidccli.Token{Access: "ACCESS_TOKEN", Refresh: nil}
+		expected := &Token{Access: "ACCESS_TOKEN", Refresh: nil}
 		assert.Equal(t, expected, res, "success without refresh")
 	}
 
@@ -128,7 +127,7 @@ func TestGenericClient_FetchTokenByCode(t *testing.T) {
 	client.cfg.Endpoint.TokenURL = server.URL
 	res, err = client.FetchTokenByCode(context.TODO(), "code", "")
 	if assert.NoError(t, err) {
-		expected := &oidccli.Token{Access: "ACCESS_TOKEN", Refresh: pointer("REFRESH_TOKEN")}
+		expected := &Token{Access: "ACCESS_TOKEN", Refresh: pointer("REFRESH_TOKEN")}
 		assert.Equal(t, expected, res, "success with refresh")
 	}
 
@@ -144,7 +143,7 @@ func TestGenericClient_FetchTokenByCode(t *testing.T) {
 	client.cfg.Endpoint.TokenURL = server.URL
 	res, err = client.FetchTokenByCode(context.TODO(), "code", "")
 	if assert.NoError(t, err) {
-		expected := &oidccli.Token{Access: "ACCESS_TOKEN", Refresh: nil}
+		expected := &Token{Access: "ACCESS_TOKEN", Refresh: nil}
 		assert.Equal(t, expected, res, "response with empty refresh token")
 	}
 
@@ -215,7 +214,7 @@ func TestGenericClient_FetchTokenByCode(t *testing.T) {
 	client.cfg.Endpoint.TokenURL = server.URL
 	res, err = client.FetchTokenByCode(context.TODO(), requestCode, "")
 	if assert.NoError(t, err) {
-		expected := &oidccli.Token{Access: "ACCESS_TOKEN", Refresh: pointer("REFRESH_TOKEN")}
+		expected := &Token{Access: "ACCESS_TOKEN", Refresh: pointer("REFRESH_TOKEN")}
 		assert.Equal(t, expected, res, "valid code")
 	}
 	_, err = client.FetchTokenByCode(context.TODO(), "another code", "")
@@ -235,26 +234,26 @@ func TestGenericClient_FetchUserByToken(t *testing.T) {
 		},
 		userInfoUrl: nil,
 		HttpClient:  http.DefaultClient,
+		um:          &JSONUnmarshaler{},
 	}
 
 	// case 1: success
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{
-          "id": "123",
+          "id": "USER_ID",
           "login": "johndow90",
           "email": "johndow90@mail.test",
+          "fullName": "John Dow",
           "firstName": "John",
           "lastName": "Dow",
-          "permissions": ["perm 1", "perm 2", "perm 3"],
-          "filed1": 1,
-          "filed2": "2"
+          "permissions": ["perm 1", "perm 2", "perm 3"]
         }`))
 		return
 	}))
 
 	client.userInfoUrl, _ = url.Parse(server.URL)
-	res, err := client.FetchUserByToken(context.TODO(), &oidccli.Token{
+	res, err := client.FetchUserByToken(context.TODO(), &Token{
 		Access:  "ACCESS_TOKEN",
 		Refresh: nil,
 	})
@@ -263,6 +262,8 @@ func TestGenericClient_FetchUserByToken(t *testing.T) {
 			Id:          "USER_ID",
 			Login:       "johndow90",
 			Email:       "johndow90@mail.test",
+			FirstName:   "John",
+			LastName:    "Dow",
 			FullName:    "John Dow",
 			Permissions: []string{"perm 1", "perm 2", "perm 3"},
 		}
@@ -279,14 +280,12 @@ func TestGenericClient_FetchUserByToken(t *testing.T) {
 	}))
 
 	client.userInfoUrl, _ = url.Parse(server.URL)
-	res, err = client.FetchUserByToken(context.TODO(), &oidccli.Token{
+	res, err = client.FetchUserByToken(context.TODO(), &Token{
 		Access:  "ACCESS_TOKEN",
 		Refresh: nil,
 	})
 	if assert.NoError(t, err) {
-		expected := &domain.User{
-			Id: "USER_ID",
-		}
+		expected := &domain.User{}
 		assert.Equal(t, expected, res, "empty json response")
 	}
 
@@ -300,7 +299,7 @@ func TestGenericClient_FetchUserByToken(t *testing.T) {
 	}))
 
 	client.userInfoUrl, _ = url.Parse(server.URL)
-	res, err = client.FetchUserByToken(context.TODO(), &oidccli.Token{
+	res, err = client.FetchUserByToken(context.TODO(), &Token{
 		Access:  "ACCESS_TOKEN",
 		Refresh: nil,
 	})
@@ -316,7 +315,7 @@ func TestGenericClient_FetchUserByToken(t *testing.T) {
 	}))
 
 	client.userInfoUrl, _ = url.Parse(server.URL)
-	res, err = client.FetchUserByToken(context.TODO(), &oidccli.Token{
+	res, err = client.FetchUserByToken(context.TODO(), &Token{
 		Access:  "",
 		Refresh: nil,
 	})
@@ -328,23 +327,23 @@ func TestGenericClient_FetchUserByToken(t *testing.T) {
 func TestGenericClient_RefreshToken(t *testing.T) {
 	tests := []struct {
 		name          string
-		token         *oidccli.Token
+		token         *Token
 		handler       http.HandlerFunc
-		expected      *oidccli.Token
+		expected      *Token
 		expectedError bool
 	}{
 		{
 			name: "with refresh",
-			token: &oidccli.Token{
+			token: &Token{
 				Access:  "OLD_ACCESS_TOKEN",
 				Refresh: pointer("OLD_REFRESH_TOKEN"),
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(`{"user_id": "USER_ID", "access_token": "ACCESS_TOKEN", "refresh_token": "REFRESH_TOKEN"}`))
+				w.Write([]byte(`{"access_token": "ACCESS_TOKEN", "refresh_token": "REFRESH_TOKEN"}`))
 				return
 			},
-			expected: &oidccli.Token{
+			expected: &Token{
 				Access:  "ACCESS_TOKEN",
 				Refresh: pointer("REFRESH_TOKEN"),
 			},
@@ -352,13 +351,13 @@ func TestGenericClient_RefreshToken(t *testing.T) {
 		},
 		{
 			name: "without refresh",
-			token: &oidccli.Token{
+			token: &Token{
 				Access:  "OLD_ACCESS_TOKEN",
 				Refresh: nil,
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(`{"user_id": "USER_ID", "access_token": "ACCESS_TOKEN", "refresh_token": "REFRESH_TOKEN"}`))
+				w.Write([]byte(`{"access_token": "ACCESS_TOKEN", "refresh_token": "REFRESH_TOKEN"}`))
 				return
 			},
 			expected:      nil,
@@ -366,13 +365,13 @@ func TestGenericClient_RefreshToken(t *testing.T) {
 		},
 		{
 			name: "invalid request token",
-			token: &oidccli.Token{
+			token: &Token{
 				Access:  "",
 				Refresh: pointer("REFRESH_TOKEN"),
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(`{"user_id": "USER_ID", "access_token": "ACCESS_TOKEN", "refresh_token": "REFRESH_TOKEN"}`))
+				w.Write([]byte(`{"access_token": "ACCESS_TOKEN", "refresh_token": "REFRESH_TOKEN"}`))
 				return
 			},
 			expected:      nil,
@@ -380,13 +379,13 @@ func TestGenericClient_RefreshToken(t *testing.T) {
 		},
 		{
 			name: "invalid response token",
-			token: &oidccli.Token{
+			token: &Token{
 				Access:  "ACCESS_TOKEN",
 				Refresh: pointer("REFRESH_TOKEN"),
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(`{"user_id": "", "access_token": "ACCESS_TOKEN", "refresh_token": "REFRESH_TOKEN"}`))
+				w.Write([]byte(`{"blah_blah_access_token": "ACCESS_TOKEN", "blah_blah_refresh_token": "REFRESH_TOKEN"}`))
 				return
 			},
 			expected:      nil,
@@ -394,7 +393,7 @@ func TestGenericClient_RefreshToken(t *testing.T) {
 		},
 		{
 			name: "invalid response json",
-			token: &oidccli.Token{
+			token: &Token{
 				Access:  "ACCESS_TOKEN",
 				Refresh: pointer("REFRESH_TOKEN"),
 			},
@@ -408,7 +407,7 @@ func TestGenericClient_RefreshToken(t *testing.T) {
 		},
 		{
 			name: "resource server error",
-			token: &oidccli.Token{
+			token: &Token{
 				Access:  "ACCESS_TOKEN",
 				Refresh: pointer("REFRESH_TOKEN"),
 			},
@@ -453,12 +452,12 @@ func TestGenericClient_RefreshToken(t *testing.T) {
 func TestToken_Valid(t *testing.T) {
 	tests := []struct {
 		name     string
-		token    oidccli.Token
+		token    Token
 		expected bool
 	}{
 		{
 			name: "without refresh",
-			token: oidccli.Token{
+			token: Token{
 				Access:  "ACCESS_TOKEN",
 				Refresh: nil,
 			},
@@ -466,7 +465,7 @@ func TestToken_Valid(t *testing.T) {
 		},
 		{
 			name: "with refresh",
-			token: oidccli.Token{
+			token: Token{
 				Access:  "ACCESS_TOKEN",
 				Refresh: pointer("REFRESH_TOKEN"),
 			},
@@ -474,7 +473,7 @@ func TestToken_Valid(t *testing.T) {
 		},
 		{
 			name: "with empty access token",
-			token: oidccli.Token{
+			token: Token{
 				Access:  "",
 				Refresh: nil,
 			},
@@ -482,7 +481,7 @@ func TestToken_Valid(t *testing.T) {
 		},
 		{
 			name: "with empty refresh token",
-			token: oidccli.Token{
+			token: Token{
 				Access:  "ACCESS_TOKEN",
 				Refresh: pointer(""),
 			},
